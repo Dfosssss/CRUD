@@ -1,0 +1,171 @@
+Intento de guía
+---Para el git ignore---
+Ctrl + Shift + X
+gitignore genererator
+Ctrl + Shift + P
+Generate .gitignore File
+aspnetcore
+
+---GIT---
+git init
+git status
+git add .
+git commit -m "Mensaje"
+git push origin master
+
+---MVC---
+dotnet new mvc
+dotnet tool install --global dotnet-aspnet-codegenerator
+dotnet add package Microsoft.VisualStudio.Web.CodeGeneration.Design
+dotnet restore
+dotnet aspnet-codegenerator controller -name (nombre) -actions -outDir Controllers
+dotnet add package Microsoft.Data.Sqlite
+dotnet add package Microsoft.Data.Sqlite.Core
+
+después de crear la base de datos se tiene que hacer dotnet build
+
+---Empezar a crear el CRUD---
+- Crear un modelo para empezar a trabajar con CRUD (objeto)
+	Despues de crear el modelo, se crea el controlador
+- dotnet aspnet-codegenerator controller -name (nombre) -actions -outDir Controllers
+- Crear una clase repositorio en la carpeta raíz (cosa)Repository
+- Crear un objeto cosaRepository en la clase cosasController
+- Crear un constructor en cosasController e inicializar el objeto cosaRepository (repo = new cosaRepository();)
+- En cosasController en el metodo index crer un var model = repo.LeerCosas() y regresar en la view el modelo (return view(model)). 
+	Va a dar un error, así que se selecciona crear método
+- Cuando se cree el método se cambia a -> internal List<Cosa> LeerCosas()
+- Se crea un constructor static de la clase cosasRepository, se crea una lista privada static de cosas List<Cosa> nombreLista (afuera del constructor) y se inicializa en el constructor
+- Crear 2 cosas y añadir a la lista para probar y en el metodo LeerCosas() hacer un return de la lista (return nombreLista.ToList();)
+- Con el generador de código, generar una vista para el Index.
+	dotnet aspnet-codegenerator view Index List -m (Nombre de la clase en el Modelo) -udl -outDir Views/Cosas     Si no funciona hacer dotnet restore
+- Una vez hecho eso, ya se puede ejecutar e ir a localhost:5001/Cosas/
+-- Lo siguiente es crear las vistas para los detalles, eliminar, añadir etc.
+	1 - dotnet aspnet-codegenerator View Index List -m (Nombre de la clase en el Modelo) -outDir Views/Cosas -udl
+	2 - dotnet aspnet-codegenerator View Details Details -m (Nombre de la clase en el Modelo) -outDir Views/Cosas -udl
+		-En la clase cosaController en el metodo de ActionResult Details crear var model = repo.LeerTareasPorID(id);
+		 va a dar error, así que se manda a crear ese nuevo método y en el return se regresa model
+		 -el metodo se cambia a public Cosa LeerTareaPorID(int id)
+		 public Tarea LeerTareasPorID(int id)
+        {
+            return db.FirstOrDefault(t => t.ID==id);
+        }
+
+        -Dirigirse a Views/Cosas/Index y hasta abajo en las cosas de edit, detail y delete hacer id=item.ID
+	3 - dotnet aspnet-codegenerator View Create Create -m (Nombre de la clase en el Modelo) -outDir Views/Cosas -udl
+		-En CosasController ir al metodo create y hacer	var model = new Cosa(); return(model);
+		-Ahí mismo ir al otro create (abajo de POST) y cambiar (IFormCollection collection) podr (Cosa moel).
+		 Dentro del try del mismo metodo hacer var resultado = repo.CrearTarea(model); y mandar a crear el metodo CrearTarea
+		-Al método crear tarea en tareas repository hacer 
+			public bool crearProducto(Product model)
+	        {
+	            try{
+	                if(db.Count==0){
+	                    model.Id =1;
+	                }else{
+	                    model.Id = db.Max(p=> p.Id)+1;
+	                }
+	                db.Add(model);
+	                return true;
+	            }catch{
+	                return false;
+	            }  
+	        }
+	4 - dotnet aspnet-codegenerator View Edit Edit -m (Nombre de la clase en el Modelo) -outDir Views/Cosas -udl
+		-En CosaController ir al método editar y hacer 
+		var model = repo.LeerTareasPorID(id);
+		if(model==null)
+			return NotFound();
+		return View(model);
+
+		-Al otro metodo edit cambiar sus 2 parametros por (Tarea model)
+		-Afuera del try hacer 
+			var tarea = repo.LeerTareasPorID(model.ID);
+			if(model==null)
+	            return NotFound();
+	    -Adentro del try hacer
+	    		tarea.ID = model.ID;
+                tarea.Descripcion = model.Descripcion;
+                tarea.Prioridad = model.Prioridad;
+                tarea.Completado = model.Completado;
+                var resultado = repo.ActualizarTarea(tarea);//Mandar a crear este metodo
+                return RedirectToAction(nameof(Index)); 
+        -En el método ActualizarTarea hacer
+        	public bool ActualizarTarea(Tarea tarea)
+        {
+            var t = db.FirstOrDefault(tar => tarea.ID == tar.ID);
+            
+            if(t==null)
+                return false;
+
+            t.Completado = tarea.Completado;
+            t.Descripcion = tarea.Descripcion;
+            t.Prioridad = tarea.Prioridad;
+            return true;
+        }
+
+        -Para ocultar el campo ID dirigirse a Edit.cshtml y borrar el div de ID e ingresar <input type="hidden" name="ID" value="@Model.ID" />
+	5 - dotnet aspnet-codegenerator View Delete Delete -m (Nombre de la clase en el Modelo) -outDir Views/Cosas -udl
+		-Adentro de delete poner
+		var model = repo.LeerTareasPorID(id);
+            if(model==null)
+                return NotFound();
+            return View(model);
+
+        -Adentro del otro metodo dentro del try poner
+        var resultado = repo.BorrarTarea(id); //Mandar a crear BorrarTarea
+
+        -Borrar tarea modificarlo para que quede así: 
+        public bool BorrarTarea(int id)
+        {
+            var t = db.FirstOrDefault(tar => id == tar.ID);
+            
+            if(t==null)
+                return false;
+            
+            db.Remove(t);
+            return true;
+        }
+
+
+
+---Empezar a implementar sqlite
+- Abajo de app.usemvc... mandar a llamar a un método llamado createDB();
+private void createDB() 
+        {
+	        using (SqliteConnection db = new SqliteConnection("Filename=app.db"))
+			{
+				db.Open();
+				String tableCommand = "CREATE TABLE IF NOT EXISTS"+
+				" Tareas (ID INTEGER NOT NULL PRIMARY KEY,"+
+                " DESCRIPCION varchar(200) not null,"+
+                " Prioridad int not null,"+
+                " Completado int not null )";
+
+				SqliteCommand createTable = new SqliteCommand(tableCommand,db);
+				createTable.ExecuteReader();
+			}
+        }
+- Una vez creado esto se hace dotnet build
+- Hacer TareasRepository : ItareasRepository
+- En TareasRepository se crea una interface ITareasRepository
+- Adentro de esa interface se ponen todos los métodos usados en la clase TareasRepository
+- En TareasController cambiamos el nombre de TareasRepository a ITareasRepository
+- En el directorio raíz crear una nueva clase llamada SqliteTareasRepository
+- Creada la clase se hace SqliteTareasRepository : ITareasRepository y se eligen las opciones para corregir de using y luego implementar interface
+- Crear un constructor parametros sqlitetareas y hacer connection = "Filename=app.db"; luego seleccionar opcion de solo lectura al corregir
+- Ir a TareasController y en el constructor cambiar repo = new TareasRepository(); por repo = new SqliteTareasRepository();
+
+-A partir de aquí se empiezan a implementar las funciones
+	LeerTareas
+	LeerTareasPorID
+	CrearTarea
+	BorrarTarea
+	ActualizarTarea
+- Se crearon las funciones ExecuteCMD y ParseTarea para no repetir código
+- Se creó la variable SELECTTAREA para no repetir código
+
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
